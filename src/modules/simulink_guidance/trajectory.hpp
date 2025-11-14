@@ -87,7 +87,12 @@ public:
 	~trajectory_type();
 };
 
-
+class trajectory_settings
+{
+public :
+	uint8_t iterations;
+	double wait_time_s;
+};
 
 
 class trajectory
@@ -105,6 +110,8 @@ private:
 	matrix::Vector<float, n_int_max> tof_int;
 
 	pointf initial_point{};
+
+	trajectory_settings settings = {1};
 
 
 	void start(void);
@@ -143,6 +150,8 @@ public:
 	file_loader_backend file_loader{};
 	int set_src(const char* _file);
 	int set_src(const char* _dir, const char* _file);
+
+	int set_iter(uint8_t iter);
 
 	void print_status(void);
 	void update(bool use_companion = false); //main update loop

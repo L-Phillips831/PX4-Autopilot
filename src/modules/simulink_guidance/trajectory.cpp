@@ -704,6 +704,7 @@ int trajectory::execute(void)
 {
 
 
+
 	matrix::Vector<DATATYPE_TRAJ,n_dofs_max> pos;
 	matrix::Vector<DATATYPE_TRAJ,n_dofs_max> vel;
 	matrix::Vector<DATATYPE_TRAJ,n_dofs_max> acc;
@@ -805,6 +806,7 @@ int trajectory::execute(void)
 		tmp_ind++;
 	}
 	_sim_guidance_pub.publish(smg);
+
 
 
 	return 0;
@@ -1151,9 +1153,21 @@ int trajectory::set_src(const char* _dir, const char* _file)
 	return 0;
 }
 
+
+int trajectory::set_iter(uint8_t iter)
+{
+	settings.iterations = iter;
+
+	return 0;
+
+}
+
+
 void trajectory::print_status(void)
 {
 	PX4_INFO("Latched on to %s trajectory file in %s", file_loader.get_file(), file_loader.get_dir());
+
+	PX4_INFO("%-20s%10d", "Trajectory Iterations:", settings.iterations);
 
 	PX4_INFO("Guidance Internal Status Report:");
 	if (status.started) 	PX4_INFO("%-20s%10s", "Started:", "true");
