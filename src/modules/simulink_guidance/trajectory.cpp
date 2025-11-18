@@ -410,15 +410,31 @@ void trajectory::update(bool use_companion)
 			}
 			else
 			{
-				if (status.executing && execute() < 0)
+				if (status.executing)
 				{
+					if(execute() < 0)
+					{
 					PX4_INFO("Failed to execute trajectory, disengaging guidance...");
 					status.finished = true;
 					status.executing = false;
+					}
 				}
 				else status.trajectory_valid = true;
 			}
 		}
+	}
+	else if (status.started && status.finished && completions < settings.iterations-1){
+
+		double TOF_total = 0.0;
+		for (size_t i = 0; i < n_int_max; i++) TOF_total += static_cast<double>(tof_int(i));	
+		if (static_cast<double>(initial_point.get_time_s()) > (settings.wait_time_s + TOF_total)){
+			PX4_INFO("Restarting trajectory execution...");
+			completions++;
+			status.finished = false;
+			status.executing = true;
+			initial_point.start(); //starts the timer for trajectory execuition
+		}
+		
 	}
 	else
 	{
@@ -1129,6 +1145,7 @@ void trajectory::reset(void)
 	status.executing = false;
 	status.finished = false;
 	status.trajectory_valid = false;
+	completions = 0;
 	return;
 }
 
@@ -1167,7 +1184,9 @@ void trajectory::print_status(void)
 {
 	PX4_INFO("Latched on to %s trajectory file in %s", file_loader.get_file(), file_loader.get_dir());
 
+	PX4_INFO("Current Trajectory Settings:");
 	PX4_INFO("%-20s%10d", "Trajectory Iterations:", settings.iterations);
+	PX4_INFO("%-20s%10.1f", "Trajectory Wait Time (s):", settings.wait_time_s);
 
 	PX4_INFO("Guidance Internal Status Report:");
 	if (status.started) 	PX4_INFO("%-20s%10s", "Started:", "true");

@@ -414,6 +414,10 @@ $ simulink_guidance trajectory reset     # Reset trajectory state
 $ simulink_guidance trajectory execute   # Begin trajectory evaluation
 $ simulink_guidance trajectory set_home  # Set home at current position
 
+Trajectory settings commands:
+$ simulink_guidance settings iterations <iter>  # Set trajectory to repeat <iter> times
+$ simulink_guidance settings wait_time <time_s>  # Set wait time between iterations to <time_s> seconds
+
 Test trajectory solver:
 $ simulink_guidance test solver
 
@@ -430,6 +434,11 @@ $ simulink_guidance test solver
 	PRINT_MODULE_USAGE_ARG("reset", "Reset trajectory state to initial conditions", false);
 	PRINT_MODULE_USAGE_ARG("execute", "Begin trajectory evaluation and tracking", false);
 	PRINT_MODULE_USAGE_ARG("set_home", "Set home position at current vehicle location", false);
+	PRINT_MODULE_USAGE_COMMAND("settings");
+	PRINT_MODULE_USAGE_COMMAND("iterations");
+	PRINT_MODULE_USAGE_ARG("<iter>", "Set trajectory to complete <iter> times", false);
+	PRINT_MODULE_USAGE_COMMAND("wait_time");
+	PRINT_MODULE_USAGE_ARG("<wait_time_s>", "Specify the wait time between consecutive trajectories", false);
 	PRINT_MODULE_USAGE_COMMAND("test");
 	PRINT_MODULE_USAGE_ARG("solver", "Test solver code generation", false);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();

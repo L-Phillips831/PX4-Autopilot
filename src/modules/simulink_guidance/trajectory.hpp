@@ -111,7 +111,8 @@ private:
 
 	pointf initial_point{};
 
-	trajectory_settings settings = {1};
+	trajectory_settings settings = {1, 5};
+	uint8_t completions = 0;
 
 
 	void start(void);
