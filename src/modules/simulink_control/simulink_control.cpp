@@ -560,7 +560,7 @@ bool SimulinkControl::check_armed(bool &armed, int input_src_opt)
 				act_armed.manual_lockdown = act_armed_px4.manual_lockdown;
 				act_armed.prearmed = act_armed_px4.prearmed;
 				act_armed.ready_to_arm = act_armed_px4.ready_to_arm;
-				act_armed.soft_stop = act_armed_px4.soft_stop;
+				// act_armed.soft_stop = act_armed_px4.soft_stop;
 				armed = act_armed_px4.armed;
 				//PX4_INFO("(updated) armed = %i, prearmed = %i", static_cast<int>(armed), static_cast<int>(act_armed.prearmed));
 				return true;
@@ -1155,9 +1155,9 @@ SimulinkControl::publish_inbound_sim_data(void)
 			break;
 
 		default: //vehicle_odometry
-			simulink_inboud_data.fill_buffer(odom.rollspeed); //4
-			simulink_inboud_data.fill_buffer(odom.pitchspeed); //5
-			simulink_inboud_data.fill_buffer(odom.yawspeed); //6
+			simulink_inboud_data.fill_buffer(odom.angular_velocity[0]); //4
+			simulink_inboud_data.fill_buffer(odom.angular_velocity[1]); //5
+			simulink_inboud_data.fill_buffer(odom.angular_velocity[2]); //6
 			break;
 		}
 
@@ -1206,7 +1206,7 @@ SimulinkControl::publish_inbound_sim_data(void)
 		simulink_inboud_data.fill_buffer(airspeed.indicated_airspeed_m_s); //24
 		simulink_inboud_data.fill_buffer(dist.current_distance); //25
 
-		simulink_inboud_data.fill_buffer(odom.vz); //26
+		simulink_inboud_data.fill_buffer(odom.velocity[2]); //26
 
 		simulink_inboud_data.fill_buffer(global_pos.lat); //27
 		simulink_inboud_data.fill_buffer(global_pos.lon); //28
