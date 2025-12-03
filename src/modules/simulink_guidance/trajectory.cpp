@@ -423,19 +423,6 @@ void trajectory::update(bool use_companion)
 			}
 		}
 	}
-	else if (status.started && status.finished && completions < settings.iterations-1){
-
-		double TOF_total = 0.0;
-		for (size_t i = 0; i < n_int_max; i++) TOF_total += static_cast<double>(tof_int(i));	
-		if (static_cast<double>(initial_point.get_time_s()) > (settings.wait_time_s + TOF_total)){
-			PX4_INFO("Restarting trajectory execution...");
-			completions++;
-			status.finished = false;
-			status.executing = true;
-			initial_point.start(); //starts the timer for trajectory execuition
-		}
-		
-	}
 	else
 	{
 		status.executing = false;
@@ -732,7 +719,18 @@ int trajectory::execute(void)
 	jerk.setZero();
 	snap.setZero();
 
-	double time_trajecotry_s = initial_point.get_time_s();
+	double raw_dt = initial_point.get_time_s();
+    double TOF_max = 0.0;
+	for (size_t i = 0; i < n_int; i++) TOF_max += static_cast<double>(tof_int(i));
+	double new_traj_start_t = completions*(TOF_max + settings.wait_time_s);
+	double traj_end_t = new_traj_start_t - settings.wait_time_s;
+
+
+	double time_trajecotry_s = 0.0;
+	if (!(raw_dt >= traj_end_t &&  raw_dt < new_traj_start_t)){
+		time_trajecotry_s = raw_dt - new_traj_start_t;
+	}
+
 
 	int res = eval_traj<DATATYPE_TRAJ,n_coeffs_max,n_dofs_max,n_int_max>(pos, time_trajecotry_s, coefs, tof_int, 0, n_coeffs, n_dofs, n_int);
 	if (eval_traj<DATATYPE_TRAJ,n_coeffs_max,n_dofs_max,n_int_max>(vel, time_trajecotry_s, coefs, tof_int, 1, n_coeffs, n_dofs, n_int) < 0) return -1;
@@ -742,9 +740,13 @@ int trajectory::execute(void)
 	if (res < 0) return -1;
 	else if (res == 1)
 	{
-		status.executing = false;
-		status.finished = true;
-		PX4_INFO("Completed trajectory execution");
+		completions++;
+		
+		if (completions == settings.iterations){	
+			status.executing = false;
+			status.finished = true;
+			PX4_INFO("Completed trajectory execution");
+		}
 	}
 
 	#ifdef DEBUG
