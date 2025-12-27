@@ -66,6 +66,8 @@
 #include <uORB/topics/sim_guidance_status.h>
 #include <uORB/topics/sim_guidance_trajectory.h>
 
+#include  <uORB/topics/trajectory_setpoint.h>
+
 #include <math.h>
 
 #include "sticks.hpp"
@@ -159,6 +161,7 @@ private:
 	uORB::Publication<input_rc_s>			_input_rc_pub{ORB_ID(input_rc)};
 	uORB::Publication<sim_guidance_request_s>	_sim_guidance_request_pub{ORB_ID(sim_guidance_request)};
 
+	uORB::Publication<trajectory_setpoint_s>		_trajectory_setpoint_pub{ORB_ID(trajectory_setpoint)};
 
 	// Subscriptions
 	uORB::Subscription		_parameter_update_sub{ORB_ID(parameter_update)};
@@ -207,8 +210,9 @@ private:
 	manual_control_switches_s man_switches{};
 
 	sim_guidance_status_s smg_status{};
-	//sim_guidance_trajectory_s smg_traj{};
+	sim_guidance_trajectory_s smg_traj{};
 
+	trajectory_setpoint_s traj_setpoint{};
 
 	void publish_inbound_sim_data(void);
 	sim_data_trafic simulink_inboud_data{};

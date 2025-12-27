@@ -117,7 +117,6 @@ int SimulinkControl::custom_command(int argc, char *argv[])
 	}
 	*/
 
-	return print_usage("unknown command");
 }
 
 
@@ -846,6 +845,9 @@ bool SimulinkControl::update_mode(float &current_mode, int input_source_opt, boo
 	int32_t en_calibration = _param_sm_en_cal.get();
 	int32_t sm_mode_src_ = _param_mode_src.get();
 
+	// // FIX ME
+	// current_mode = static_cast<float>(6.0f); // Forcing autonomous read
+
 	if (en_calibration == 1)
 	{
 		if (use_raw_mode_switch) current_mode = -1.f;
@@ -1138,6 +1140,7 @@ SimulinkControl::publish_inbound_sim_data(void)
 	if (update_distance_sensor()) need_2_pub = true;
 	if (update_airspeed()) need_2_pub = true;
 	if (_vehicle_angular_velocity_sub.update(&v_angular_velocity)) need_2_pub = true;
+	if (_sim_guidance_trajectory_sub.update(&smg_traj)) need_2_pub = true;
 
 	//publish new data if needed:
 	if (need_2_pub)
@@ -1219,6 +1222,17 @@ SimulinkControl::publish_inbound_sim_data(void)
 		simulink_inboud_data.fill_buffer(airspeed.confidence); //33
 
 		simulink_inboud_data.fill_buffer(v_angular_velocity.xyz_derivative, 3); //34 35 36
+
+		// Testing grabbing guidance data
+		simulink_inboud_data.fill_buffer(smg_traj.position, 4); // 37,38,39,40
+		// printf("Traj X Pos: %f\n", static_cast<double>(smg_traj.position[0]));
+
+		// Create a setpoint for px4 controller to use
+		traj_setpoint.timestamp = hrt_absolute_time();
+		traj_setpoint.position[0] = smg_traj.position[0];
+		traj_setpoint.position[1] = smg_traj.position[1];
+		traj_setpoint.position[2] = smg_traj.position[2];
+		_trajectory_setpoint_pub.publish(traj_setpoint);
 
 		//publish new data:
 		debug_topic.timestamp = hrt_absolute_time();
