@@ -12,4 +12,4 @@ float32[4] acceleration
 float32[4] jerk
 float32[4] snap
 
-float32 TOF
+float32 tof_s
