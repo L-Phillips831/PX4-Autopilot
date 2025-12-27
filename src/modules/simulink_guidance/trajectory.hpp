@@ -113,6 +113,7 @@ private:
 
 	trajectory_settings settings = {1, 5};
 	uint8_t completions = 0;
+	double TOF = 0.0;
 
 
 	void start(void);
