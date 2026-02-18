@@ -67,6 +67,11 @@
 #include <uORB/topics/sim_guidance_trajectory.h>
 
 #include  <uORB/topics/trajectory_setpoint.h>
+#include  <uORB/topics/vehicle_thrust_setpoint.h>	
+#include  <uORB/topics/vehicle_torque_setpoint.h>
+#include <uORB/topics/vehicle_control_mode.h>
+#include <uORB/topics/control_allocator_status.h>
+#include <uORB/topics/actuator_motors.h>
 
 #include <math.h>
 
@@ -162,6 +167,12 @@ private:
 	uORB::Publication<sim_guidance_request_s>	_sim_guidance_request_pub{ORB_ID(sim_guidance_request)};
 
 	uORB::Publication<trajectory_setpoint_s>		_trajectory_setpoint_pub{ORB_ID(trajectory_setpoint)};
+	uORB::Publication<vehicle_thrust_setpoint_s>		_vehicle_thrust_setpoint_pub{ORB_ID(vehicle_thrust_setpoint)};
+	uORB::Publication<vehicle_torque_setpoint_s>	_vehicle_torque_setpoint_pub{ORB_ID(vehicle_torque_setpoint)};
+	uORB::Publication<actuator_motors_s>		_actuator_motors_pub{ORB_ID(actuator_motors)};
+	uORB::Publication<vehicle_control_mode_s>	_vehicle_control_mode_pub{ORB_ID(vehicle_control_mode)};
+	uORB::Publication<control_allocator_status_s>		_allocator_status_pub{ORB_ID(control_allocator_status)};
+
 
 	// Subscriptions
 	uORB::Subscription		_parameter_update_sub{ORB_ID(parameter_update)};
@@ -183,9 +194,12 @@ private:
 	uORB::Subscription		_simulink_outbound_sub{ORB_ID(simulink_outbound)};
 	uORB::Subscription		_simulink_inbound_sub{ORB_ID(simulink_inbound)};
 	uORB::Subscription		_simulink_inbound_ctrl_sub{ORB_ID(simulink_inbound_ctrl)};
-	uORB::Subscription     		_vehicle_angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};
+	uORB::Subscription      _vehicle_angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};
 	uORB::Subscription		_sim_guidance_status_sub{ORB_ID(sim_guidance_status)};
 	uORB::Subscription		_sim_guidance_trajectory_sub{ORB_ID(sim_guidance_trajectory)};
+	uORB::Subscription      _vehicle_thrust_setpoint_sub{ORB_ID(vehicle_thrust_setpoint)};
+	uORB::Subscription      _vehicle_torque_setpoint_sub{ORB_ID(vehicle_torque_setpoint)};
+	uORB::Subscription      _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 
 	vehicle_local_position_s local_pos{};
 	vehicle_acceleration_s veh_acc{};
@@ -199,6 +213,9 @@ private:
 	vehicle_odometry_s odom{};
 	adc_report_s adc{};
 	vehicle_angular_velocity_s v_angular_velocity{};
+	vehicle_control_mode_s vehicle_control_mode{};
+	control_allocator_status_s allocator_status{};
+	hrt_abstime _act_last_run = 0;
 
 	hrt_abstime	_boot_timestamp{0};
 
@@ -213,11 +230,17 @@ private:
 	sim_guidance_trajectory_s smg_traj{};
 
 	trajectory_setpoint_s traj_setpoint{};
+	vehicle_thrust_setpoint_s vehicle_thrust_setpoint{};
+	vehicle_torque_setpoint_s vehicle_torque_setpoint{};
+	actuator_motors_s actuator_motors{};
+
 
 	void publish_inbound_sim_data(void);
 	sim_data_trafic simulink_inboud_data{};
 
 	debug_array_s debug_topic{};
+
+	void handle_simulink_outbound(void);
 
 	bool check_ground_contact(void);
 	bool update_distance_sensor(void);
@@ -265,7 +288,9 @@ private:
 		(ParamInt<px4::params::SM_THROTTLE>) _param_sm_throttle,
 		(ParamInt<px4::params::SM_ANG_VEL_SRC>) _param_sm_ang_vel_src,
 		(ParamInt<px4::params::SM_ATT_SRC>) _param_sm_att_src,
-		(ParamInt<px4::params::SM_ACC_SRC>) _param_sm_acc_src
+		(ParamInt<px4::params::SM_ACC_SRC>) _param_sm_acc_src,
+		(ParamFloat<px4::params::ILC_GAMMA_P>) _param_ilc_gamma_p,
+		(ParamFloat<px4::params::ILC_GAMMA_D>) _param_ilc_gamma_d
 	)//MAKE SURE EVERY PARAMETER IS FOLLOWED BY "," AND LAST ONE DOES NOT HAVE ANYTHING
 };
 

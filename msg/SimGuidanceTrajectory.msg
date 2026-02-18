@@ -13,3 +13,4 @@ float32[4] jerk
 float32[4] snap
 
 float32 tof_s
+uint8 iterations

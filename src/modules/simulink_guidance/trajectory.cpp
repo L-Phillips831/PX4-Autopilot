@@ -424,6 +424,18 @@ void trajectory::update(bool use_companion)
 			}
 		}
 	}
+	else if (status.started && status.finished) // Check for waiting period
+	{
+		if (status.executing)
+		{
+			if(execute() < 0)
+					{
+					PX4_INFO("Failed to execute trajectory, disengaging guidance...");
+					status.finished = true;
+					status.executing = false;
+					}
+		}
+	}
 	else
 	{
 		status.executing = false;
@@ -725,10 +737,14 @@ int trajectory::execute(void)
 	double new_traj_start_t = completions*(TOF + settings.wait_time_s);
 	double traj_end_t = new_traj_start_t - settings.wait_time_s;
 
-
+	bool waiting = true;
 	double time_trajecotry_s = 0.0;
 	if (!(raw_dt >= traj_end_t &&  raw_dt < new_traj_start_t)){
+		waiting = false;
 		time_trajecotry_s = raw_dt - new_traj_start_t;
+	}
+	else{
+		time_trajecotry_s = 0.0;
 	}
 
 
@@ -737,12 +753,27 @@ int trajectory::execute(void)
 	if (eval_traj<DATATYPE_TRAJ,n_coeffs_max,n_dofs_max,n_int_max>(acc, time_trajecotry_s, coefs, tof_int, 2, n_coeffs, n_dofs, n_int) < 0) return -1;
 	if (eval_traj<DATATYPE_TRAJ,n_coeffs_max,n_dofs_max,n_int_max>(jerk, time_trajecotry_s, coefs, tof_int, 3, n_coeffs, n_dofs, n_int) < 0) return -1;
 	if (eval_traj<DATATYPE_TRAJ,n_coeffs_max,n_dofs_max,n_int_max>(snap, time_trajecotry_s, coefs, tof_int, 4, n_coeffs, n_dofs, n_int) < 0) return -1;
-	if (res < 0) {
+	switch (res)
+	{
+	case -1:
 		PX4_WARN("Error in trajectory evaluation");
 		return -1;
-	}
-	else if (res == 1)
-	{
+		break;
+
+	case 0:
+		//normal operation
+
+		if (waiting){
+
+			status.finished = true; // traj thinks its executing at t_0, but we are in waiting period so let ILC know
+			status.executing = true; // still executing
+		}
+		else{
+			status.finished = false;
+			status.executing = true;
+		}
+			break;
+	case 1:
 		PX4_INFO("Completed iteration %u of trajectory execution",static_cast<uint16_t>(completions+1));
 		completions++;
 		
@@ -751,6 +782,8 @@ int trajectory::execute(void)
 			status.finished = true;
 			PX4_INFO("Completed trajectory execution");
 		}
+
+		break;
 	}
 
 	#ifdef DEBUG
@@ -776,6 +809,7 @@ int trajectory::execute(void)
 		smg_traj.snap[i] = static_cast<float>(snap(i)) + static_cast<float>(initial_point.snap(i));
 	}
 	smg_traj.tof_s = static_cast<float>(TOF);
+	smg_traj.iterations = static_cast<uint8_t>(settings.iterations);
 
 	//printf("initial_point.pos(0) = %f\n",(double)initial_point.pos(0));
 
@@ -829,6 +863,8 @@ int trajectory::execute(void)
 		tmp_ind++;
 	}
 	smg.data[tmp_ind] = static_cast<float>(TOF);
+	tmp_ind++;
+	smg.data[tmp_ind] = static_cast<float>(settings.iterations);
 	tmp_ind++;
 	_sim_guidance_pub.publish(smg);
 

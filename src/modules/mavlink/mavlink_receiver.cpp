@@ -2849,9 +2849,9 @@ MavlinkReceiver::handle_message_debug_float_array(mavlink_message_t *msg)
 	case debug_array_s::SIMULINK_OUTBOUND_2_ID:
 		_simulink_outbound_2_pub.publish(debug_topic);
 		return;
-	case debug_array_s::SIMULINK_OUTBOUND_3_ID:
-		_simulink_outbound_3_pub.publish(debug_topic);
-		return;
+	// case debug_array_s::SIMULINK_OUTBOUND_3_ID:
+	// 	_simulink_outbound_3_pub.publish(debug_topic);
+	// 	return;
 	default:
 		_debug_array_pub.publish(debug_topic);
 		return;

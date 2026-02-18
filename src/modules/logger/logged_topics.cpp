@@ -547,7 +547,7 @@ void LoggedTopics::add_sim_topics()
 	add_topic("simulink_outbound", sm_log_delay_ms);
 	add_topic("simulink_outbound_1", sm_log_delay_ms);
 	add_topic("simulink_outbound_2", sm_log_delay_ms);
-	add_topic("simulink_outbound_3", sm_log_delay_ms);
+	// add_topic("simulink_outbound_3", sm_log_delay_ms);
 	add_topic("simulink_inbound_ctrl", sm_log_delay_ms);
 	add_topic("simulink_guidance", sm_log_delay_ms);
 

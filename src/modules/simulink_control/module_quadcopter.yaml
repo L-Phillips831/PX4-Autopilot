@@ -557,4 +557,28 @@ parameters:
             min: 0.05
             max: 1.0
 
+        ILC_GAMMA_P:
+            description:
+                short: ILC proportional gain
+                long: |
+                    Iterative Learning Control proportional gain for SIMULINK controller
+
+            type: float
+            decimal: 1
+            default: 0.1
+            min: 0.0
+            max: 5.0
+
+        ILC_GAMMA_D:
+            description:
+                short: ILC derivative gain
+                long: |
+                    Iterative Learning Control derivative gain for SIMULINK controller
+
+            type: float
+            decimal: 2
+            default: 0.01
+            min: 0.0
+            max: 5.0
+            
 

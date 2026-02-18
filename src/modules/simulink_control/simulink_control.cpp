@@ -203,7 +203,8 @@ void SimulinkControl::run()
 	_boot_timestamp = hrt_absolute_time();
 	while (!should_exit()) {
 		parameters_update(); // update parameters
-		update_simulink_io(); //update everything related to simulink
+		update_simulink_io(); //update everything for simulink controller
+		handle_simulink_outbound(); //process outbound data from simulink controller
 
 		px4_usleep(1000);// don't update too frequenty
 	}
@@ -325,18 +326,18 @@ bool SimulinkControl::update_sticks(int input_source_opt, sticks_ind stick, floa
 
 			switch (stick)
 			{
-			case THROTTLE: //special case
-				switch (_param_sm_throttle.get())
-				{
-				case 1: // [0 1] -> [-1 1]
-					stick_val = stick_val * 2.f - 1.f;
-					break;
+			// case THROTTLE: //special case OUTDATED
+			// 	switch (_param_sm_throttle.get())
+			// 	{
+			// 	case 1: // [0 1] -> [-1 1]
+			// 		stick_val = stick_val * 2.f - 1.f;
+			// 		break;
 
-				default: // keep [0 1]
-					stick_val = stick_val;
-					break;
-				}
-				return true;
+			// 	default: // keep [0 1]
+			// 		stick_val = stick_val;
+			// 		break;
+			// 	}
+			// 	return true;
 			case MODE:
 				{
 					bool use_raw_mode_switch = _param_mode_type.get() == 1;
@@ -345,14 +346,17 @@ bool SimulinkControl::update_sticks(int input_source_opt, sticks_ind stick, floa
 						switch (man_switches.mode_slot)
 						{
 						case manual_control_switches_s::SWITCH_POS_ON:
+							PX4_INFO("Mode switch in ON position");
 							if(use_raw_mode_switch) stick_val = 1.f;
 							else stick_val = static_cast<float>(MODE3);
 							break;
 						case manual_control_switches_s::SWITCH_POS_MIDDLE:
+							PX4_INFO("Mode switch in MIDDLE position");
 							if(use_raw_mode_switch) stick_val = 0.f;
 							else stick_val = static_cast<float>(MODE2);
 							break;
 						default:
+							PX4_INFO("Mode switch in OFF position");
 							if(use_raw_mode_switch) stick_val = -1.f;
 							else stick_val = static_cast<float>(MODE1);
 							break;
@@ -848,7 +852,7 @@ bool SimulinkControl::update_mode(float &current_mode, int input_source_opt, boo
 	int32_t sm_mode_src_ = _param_mode_src.get();
 
 	// // FIX ME
-	// current_mode = static_cast<float>(6.0f); // Forcing autonomous read
+	current_mode = static_cast<float>(POS_CONTROL); // Forcing autonomous read
 
 	if (en_calibration == 1)
 	{
@@ -1234,7 +1238,10 @@ SimulinkControl::publish_inbound_sim_data(void)
 		traj_setpoint.position[0] = smg_traj.position[0];
 		traj_setpoint.position[1] = smg_traj.position[1];
 		traj_setpoint.position[2] = smg_traj.position[2];
-		_trajectory_setpoint_pub.publish(traj_setpoint);
+		// _trajectory_setpoint_pub.publish(traj_setpoint); // dont publish this if using simulink controller
+
+
+
 
 		//publish new data:
 		debug_topic.timestamp = hrt_absolute_time();
@@ -1246,8 +1253,85 @@ SimulinkControl::publish_inbound_sim_data(void)
 		simulink_inboud_data.send_vec(debug_topic.data);
 
 		if (_param_en_hil.get() == 0) _simulink_inbound_pub.publish(debug_topic); //if HIL/SITL is enabled, assume this data was already published
+	}
 
-		//_simulink_outbound_pub.publish(debug_topic);
+	// If we are disarmed, send outbound data with updated timestamp
+	if(!act_armed_px4.armed && !act_armed.armed) //if both px4 and simulink agree we are disarmed
+	{
+		debug_topic.timestamp = hrt_absolute_time();
+		debug_topic.id = debug_array_s::SIMULINK_OUTBOUND_ID;
+		char message_name[11] = "outbound";
+		memcpy(debug_topic.name, message_name, sizeof(message_name));
+		memset(debug_topic.data, 0, sizeof(debug_topic.data)); //clear old data
+		debug_topic.name[sizeof(debug_topic.name) - 1] = '\0'; // enforce null termination
+		_simulink_outbound_pub.publish(debug_topic);
+	}
+
+}
+
+void SimulinkControl::handle_simulink_outbound(void){
+
+	const hrt_abstime now = hrt_absolute_time();
+	const float dt = math::constrain(((now - _act_last_run) / 1.0E6f), 0.0002f, 0.02f); //convert to seconds
+
+	// // Check for updates
+	bool need_2_pub = false;
+	if(_simulink_outbound_sub.update(&sm_outbound)) need_2_pub = true;
+	// _simulink_outbound_sub.update(&sm_outbound);
+
+	// Grab new data
+	if (need_2_pub)
+	{
+
+		// Grab Normalized Control Outputs from Debug Array
+		// 0-15 is actuator cmds, 16-53 is other data, 54-55 is flight states, 56-57 reserved
+		int motor_idx = 0;   int num_motors = 4; // default to quadcopter
+		
+		for(motor_idx = 0; motor_idx < num_motors && motor_idx < actuator_motors_s::NUM_CONTROLS; motor_idx++){
+			float _cmd = static_cast<float>(sm_outbound.data[motor_idx]);
+			_cmd = (_cmd * 0.001f); //convert from [0 1000] to [0 1]
+			actuator_motors.control[motor_idx] = _cmd;
+		}
+
+		for(int i = motor_idx; i < actuator_motors_s::NUM_CONTROLS; i++){
+			actuator_motors.control[i] = NAN; //set unused motors to NAN
+		}
+    
+	}
+
+	// Publish what we have with updated timestamp
+	actuator_motors.timestamp = now;
+	_actuator_motors_pub.publish(actuator_motors);
+
+
+	// spoof control allocator status
+	if (dt >= 0.005f)
+	{
+		allocator_status.timestamp = now;
+		allocator_status.unallocated_torque[0] = 0.f;
+		allocator_status.unallocated_torque[1] = 0.f;
+		allocator_status.unallocated_torque[2] = 0.f;
+		allocator_status.unallocated_thrust[0] = 0.f;
+		allocator_status.unallocated_thrust[1] = 0.f;
+		allocator_status.unallocated_thrust[2] = 0.f;
+		allocator_status.torque_setpoint_achieved = true;
+		allocator_status.thrust_setpoint_achieved = true;
+		for (int i = 0; i < actuator_motors_s::NUM_CONTROLS; i++)
+		{
+			float _cmd = static_cast<float>(sm_outbound.data[i]);
+			_cmd = (_cmd * 0.001f); //convert from [0 1000] to [0 1]
+			if (_cmd > 0.998f){
+				allocator_status.actuator_saturation[i] = control_allocator_status_s::ACTUATOR_SATURATION_UPPER;
+			} else if (_cmd < 0.002f){
+				allocator_status.actuator_saturation[i] = control_allocator_status_s::ACTUATOR_SATURATION_LOWER;
+			} else {
+				allocator_status.actuator_saturation[i] = control_allocator_status_s::ACTUATOR_SATURATION_OK;
+			}
+		}
+
+
+		_allocator_status_pub.publish(allocator_status);
+		_act_last_run = now;
 	}
 
 }
