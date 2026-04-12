@@ -29,7 +29,16 @@ parameters:
                 9: Custom
                 10: Helicopter
             default: 0
-
+        CA_SM:
+            description:
+              short: Simulink Control mixing selection
+              long: |
+                Defines the source selection logic for mixing.
+            type: enum
+            values:
+                0: disabled
+                1: enabled
+            default: 1
         CA_METHOD:
             description:
                 short: Control allocation method

@@ -291,6 +291,7 @@ ControlAllocator::update_effectiveness_source()
 void
 ControlAllocator::Run()
 {
+
 	if (should_exit()) {
 		_vehicle_torque_setpoint_sub.unregisterCallback();
 		_vehicle_thrust_setpoint_sub.unregisterCallback();
@@ -637,6 +638,7 @@ ControlAllocator::publish_control_allocator_status(int matrix_index)
 void
 ControlAllocator::publish_actuator_controls()
 {
+
 	actuator_motors_s actuator_motors;
 	actuator_motors.timestamp = hrt_absolute_time();
 	actuator_motors.timestamp_sample = _timestamp_sample;
@@ -652,45 +654,71 @@ ControlAllocator::publish_actuator_controls()
 
 	uint32_t stopped_motors = _actuator_effectiveness->getStoppedMotors() | _handled_motor_failure_bitmask;
 
-	// motors
-	int motors_idx;
+	// PX4_INFO("SIMULINK SRC ACTIVE: %d", _param_use_sm.get());
+	if (_param_use_sm.get())
+	{
+		_simulink_outbound_sub.update(&sm_outbound);
 
-	for (motors_idx = 0; motors_idx < _num_actuators[0] && motors_idx < actuator_motors_s::NUM_CONTROLS; motors_idx++) {
-		int selected_matrix = _control_allocation_selection_indexes[actuator_idx];
-		float actuator_sp = _control_allocation[selected_matrix]->getActuatorSetpoint()(actuator_idx_matrix[selected_matrix]);
-		actuator_motors.control[motors_idx] = PX4_ISFINITE(actuator_sp) ? actuator_sp : NAN;
+		// Grab Normalized Control Outputs from Debug Array
+		// 0-15 is actuator cmds, 16-53 is other data, 54-55 is flight states, 56-57 reserved
+		int motor_idx = 0;   int num_motors = 4; // default to quadcopter
 
-		if (stopped_motors & (1u << motors_idx)) {
-			actuator_motors.control[motors_idx] = NAN;
+		for(motor_idx = 0; motor_idx < num_motors && motor_idx < actuator_motors_s::NUM_CONTROLS; motor_idx++){
+			float _cmd = static_cast<float>(sm_outbound.data[motor_idx]);
+			_cmd = (_cmd * 0.001f); //convert from [0 1000] to [0 1]
+			actuator_motors.control[motor_idx] = _cmd;
+			// PX4_INFO("MOTOR [%d]: %.3f", motor_idx, static_cast<double>(_cmd));
 		}
 
-		++actuator_idx_matrix[selected_matrix];
-		++actuator_idx;
+		for(int i = motor_idx; i < actuator_motors_s::NUM_CONTROLS; i++){
+			actuator_motors.control[i] = NAN; //set unused motors to NAN
+		}
+
+		_actuator_motors_pub.publish(actuator_motors);
+
 	}
+	else {
 
-	for (int i = motors_idx; i < actuator_motors_s::NUM_CONTROLS; i++) {
-		actuator_motors.control[i] = NAN;
-	}
+		// motors
+		int motors_idx;
 
-	_actuator_motors_pub.publish(actuator_motors);
-
-	// servos
-	if (_num_actuators[1] > 0) {
-		int servos_idx;
-
-		for (servos_idx = 0; servos_idx < _num_actuators[1] && servos_idx < actuator_servos_s::NUM_CONTROLS; servos_idx++) {
+		for (motors_idx = 0; motors_idx < _num_actuators[0] && motors_idx < actuator_motors_s::NUM_CONTROLS; motors_idx++) {
 			int selected_matrix = _control_allocation_selection_indexes[actuator_idx];
 			float actuator_sp = _control_allocation[selected_matrix]->getActuatorSetpoint()(actuator_idx_matrix[selected_matrix]);
-			actuator_servos.control[servos_idx] = PX4_ISFINITE(actuator_sp) ? actuator_sp : NAN;
+			actuator_motors.control[motors_idx] = PX4_ISFINITE(actuator_sp) ? actuator_sp : NAN;
+
+			if (stopped_motors & (1u << motors_idx)) {
+				actuator_motors.control[motors_idx] = NAN;
+			}
+
 			++actuator_idx_matrix[selected_matrix];
 			++actuator_idx;
 		}
 
-		for (int i = servos_idx; i < actuator_servos_s::NUM_CONTROLS; i++) {
-			actuator_servos.control[i] = NAN;
+		for (int i = motors_idx; i < actuator_motors_s::NUM_CONTROLS; i++) {
+			actuator_motors.control[i] = NAN;
 		}
 
-		_actuator_servos_pub.publish(actuator_servos);
+		_actuator_motors_pub.publish(actuator_motors);
+
+		// servos
+		if (_num_actuators[1] > 0) {
+			int servos_idx;
+
+			for (servos_idx = 0; servos_idx < _num_actuators[1] && servos_idx < actuator_servos_s::NUM_CONTROLS; servos_idx++) {
+				int selected_matrix = _control_allocation_selection_indexes[actuator_idx];
+				float actuator_sp = _control_allocation[selected_matrix]->getActuatorSetpoint()(actuator_idx_matrix[selected_matrix]);
+				actuator_servos.control[servos_idx] = PX4_ISFINITE(actuator_sp) ? actuator_sp : NAN;
+				++actuator_idx_matrix[selected_matrix];
+				++actuator_idx;
+			}
+
+			for (int i = servos_idx; i < actuator_servos_s::NUM_CONTROLS; i++) {
+				actuator_servos.control[i] = NAN;
+			}
+
+			_actuator_servos_pub.publish(actuator_servos);
+		}
 	}
 }
 

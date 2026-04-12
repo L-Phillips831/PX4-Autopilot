@@ -204,7 +204,7 @@ void SimulinkControl::run()
 	while (!should_exit()) {
 		parameters_update(); // update parameters
 		update_simulink_io(); //update everything for simulink controller
-		handle_simulink_outbound(); //process outbound data from simulink controller
+		// handle_simulink_outbound(); //process outbound data from simulink controller
 
 		px4_usleep(1000);// don't update too frequenty
 	}
@@ -852,7 +852,7 @@ bool SimulinkControl::update_mode(float &current_mode, int input_source_opt, boo
 	int32_t sm_mode_src_ = _param_mode_src.get();
 
 	// // FIX ME
-	current_mode = static_cast<float>(POS_CONTROL); // Forcing autonomous read
+	// current_mode = static_cast<float>(POS_CONTROL); // Forcing autonomous read
 
 	if (en_calibration == 1)
 	{
@@ -1286,7 +1286,7 @@ void SimulinkControl::handle_simulink_outbound(void){
 		// Grab Normalized Control Outputs from Debug Array
 		// 0-15 is actuator cmds, 16-53 is other data, 54-55 is flight states, 56-57 reserved
 		int motor_idx = 0;   int num_motors = 4; // default to quadcopter
-		
+
 		for(motor_idx = 0; motor_idx < num_motors && motor_idx < actuator_motors_s::NUM_CONTROLS; motor_idx++){
 			float _cmd = static_cast<float>(sm_outbound.data[motor_idx]);
 			_cmd = (_cmd * 0.001f); //convert from [0 1000] to [0 1]
@@ -1296,7 +1296,7 @@ void SimulinkControl::handle_simulink_outbound(void){
 		for(int i = motor_idx; i < actuator_motors_s::NUM_CONTROLS; i++){
 			actuator_motors.control[i] = NAN; //set unused motors to NAN
 		}
-    
+
 	}
 
 	// Publish what we have with updated timestamp

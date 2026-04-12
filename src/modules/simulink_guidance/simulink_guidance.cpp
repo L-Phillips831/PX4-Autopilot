@@ -38,7 +38,6 @@
 #include <px4_platform_common/posix.h>
 
 #include <math.h>
-#include <charconv>
 #include <uORB/topics/parameter_update.h>
 //#include "waypoints.hpp"
 
@@ -211,37 +210,50 @@ int SimulinkGuidance::custom_command(int argc, char *argv[])
 			}
 			else
 			{
-				if(!strcmp(argv[i+1], "iterations"))
+				if (!strcmp(argv[i+1], "iterations"))
 				{
-					if (argc < i+3){
+					if (argc < i+3) {
 						PX4_WARN("Usage: iterations <iter>");
 						return 0;
 					}
-					else if (argc > i+3){
+					else if (argc > i+3) {
 						PX4_WARN("Too many arguments. Failed to set trajectory iterations.");
 						return 0;
 					}
 					else {
 						const char *char_iter = argv[i+2];
-						uint8_t iter;
-						std::from_chars_result result = std::from_chars(char_iter, char_iter + strlen(char_iter), iter);
-						if(result.ec == std::errc::invalid_argument){
-							PX4_WARN("Invalid Integer Argument. Failed to set trajectory iterations");
-							return 0;
-						}
-						else if(result.ec == std::errc::result_out_of_range){
-							PX4_WARN("Integer argument out of range. Failed to set trajectory iterations.");
-							return 0;
-						}
-						else{
-							if (get_instance()->traj.set_iter(iter) < 0){
-								PX4_WARN("Failed to set iterations.");
-								return 0;
-							}
-							PX4_INFO("Iterations set.");
-							return 0;
+						char *endptr = nullptr;
+
+						errno = 0;
+						unsigned long val = strtoul(char_iter, &endptr, 10);
+
+						// Check: no conversion performed
+						if (endptr == char_iter) {
+						PX4_WARN("Invalid Integer Argument. Failed to set trajectory iterations");
+						return 0;
 						}
 
+						// Check: extra characters after number
+						if (*endptr != '\0') {
+						PX4_WARN("Invalid characters in argument. Failed to set trajectory iterations");
+						return 0;
+						}
+
+						// Check: range errors
+						if (errno == ERANGE || val > UINT8_MAX) {
+						PX4_WARN("Integer argument out of range. Failed to set trajectory iterations.");
+						return 0;
+						}
+
+						uint8_t iter = static_cast<uint8_t>(val);
+
+						if (get_instance()->traj.set_iter(iter) < 0) {
+						PX4_WARN("Failed to set iterations.");
+						return 0;
+						}
+
+						PX4_INFO("Iterations set.");
+						return 0;
 					}
 				}
 			}
